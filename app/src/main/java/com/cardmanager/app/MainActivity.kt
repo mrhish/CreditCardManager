@@ -1,4 +1,4 @@
-herepackage com.cardmanager.app
+package com.cardmanager.app
 
 import android.os.Bundle
 import android.widget.Toast
@@ -11,6 +11,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.cardmanager.app.data.AppDatabase
+import com.cardmanager.app.reminder.ReminderScheduler
 import com.cardmanager.app.ui.AddCardScreen
 import com.cardmanager.app.ui.CardDetailScreen
 import com.cardmanager.app.ui.DashboardScreen
@@ -18,7 +19,6 @@ import com.cardmanager.app.ui.theme.CardManagerTheme
 import com.cardmanager.app.viewmodel.CardRepository
 import com.cardmanager.app.viewmodel.CardViewModel
 import com.cardmanager.app.viewmodel.CardViewModelFactory
-import com.cardmanager.app.reminder.ReminderScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
@@ -38,7 +38,6 @@ class MainActivity : ComponentActivity() {
                 val cards by viewModel.cards.collectAsState()
 
                 NavHost(navController = navController, startDestination = "dashboard") {
-                    
                     composable("dashboard") {
                         DashboardScreen(
                             cards = cards,
@@ -58,7 +57,7 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                    
+
                     composable("add_card") {
                         AddCardScreen(
                             onNavigateBack = { navController.popBackStack() },
@@ -77,13 +76,13 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                    
+
                     composable("card_detail/{cardId}") { backStackEntry ->
                         val cardIdString = backStackEntry.arguments?.getString("cardId")
                         val cardId = cardIdString?.toLongOrNull()
-                        
+
                         val card = cards.find { it.id == cardId }
-                        
+
                         val transactionsFlow = if (cardId != null) {
                             viewModel.getTransactions(cardId)
                         } else {
@@ -95,8 +94,8 @@ class MainActivity : ComponentActivity() {
                             card = card,
                             transactions = transactionsList,
                             onNavigateBack = { navController.popBackStack() },
-                            onAddTransaction = { newTransaction -> 
-                                viewModel.addTransaction(newTransaction) 
+                            onAddTransaction = { newTransaction ->
+                                viewModel.addTransaction(newTransaction)
                             }
                         )
                     }
