@@ -1,8 +1,11 @@
 package com.cardmanager.app.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.cardmanager.app.backup.BackupManager
 import com.cardmanager.app.data.model.Card
 import com.cardmanager.app.data.model.Transaction
 import kotlinx.coroutines.flow.SharingStarted
@@ -12,7 +15,6 @@ import kotlinx.coroutines.launch
 
 class CardViewModel(private val repository: CardRepository) : ViewModel() {
 
-    // Exposes the list of cards to the UI automatically updated
     val cards: StateFlow<List<Card>> = repository.allCards.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -45,9 +47,36 @@ class CardViewModel(private val repository: CardRepository) : ViewModel() {
             repository.deleteCard(card)
         }
     }
+
+    fun exportDatabase(context: Context, uri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            repository.allCards.collect { currentCards ->
+                val allTransactions = mutableListOf<Transaction>()
+                for (card in currentCards) {
+                    repository.getTransactionsForCard(card.id).collect { txns ->
+                        allTransactions.addAll(txns)
+                    }
+                }
+                val success = BackupManager.exportData(context, uri, currentCards, allTransactions)
+                onResult(success)
+            }
+        }
+    }
+
+    fun importDatabase(context: Context, uri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val backup = BackupManager.importData(context, uri)
+            if (backup != null) {
+                backup.cards.forEach { repository.insertCard(it) }
+                backup.transactions.forEach { repository.addTransaction(it) }
+                onResult(true)
+            } else {
+                onResult(false)
+            }
+        }
+    }
 }
 
-// Factory to create the ViewModel without heavy libraries like Hilt
 class CardViewModelFactory(private val repository: CardRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CardViewModel::class.java)) {
