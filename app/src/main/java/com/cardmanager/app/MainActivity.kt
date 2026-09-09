@@ -1,6 +1,7 @@
-package com.cardmanager.app
+herepackage com.cardmanager.app
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.collectAsState
@@ -26,7 +27,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Initialize Database, Repository, and ViewModel
         val database = AppDatabase.getDatabase(this)
         val repository = CardRepository(database.cardDao(), database.transactionDao())
         val factory = CardViewModelFactory(repository)
@@ -34,67 +34,63 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CardManagerTheme {
-                // 2. Set up the Navigation Controller
                 val navController = rememberNavController()
-                
-                // 3. Observe the list of cards from the ViewModel
                 val cards by viewModel.cards.collectAsState()
 
-                // 4. Define all the screens in the app
                 NavHost(navController = navController, startDestination = "dashboard") {
                     
-                    // SCREEN A: The Main Dashboard
                     composable("dashboard") {
                         DashboardScreen(
                             cards = cards,
                             onAddCardClick = { navController.navigate("add_card") },
-                            onCardClick = { cardId -> navController.navigate("card_detail/$cardId") }
+                            onCardClick = { cardId -> navController.navigate("card_detail/$cardId") },
+                            onExportDatabase = { uri ->
+                                viewModel.exportDatabase(this@MainActivity, uri) { success ->
+                                    val msg = if (success) "Backup Successful!" else "Backup Failed"
+                                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onImportDatabase = { uri ->
+                                viewModel.importDatabase(this@MainActivity, uri) { success ->
+                                    val msg = if (success) "Restore Successful!" else "Restore Failed"
+                                    Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
                         )
                     }
                     
-                    // SCREEN B: Add a New Card
                     composable("add_card") {
                         AddCardScreen(
                             onNavigateBack = { navController.popBackStack() },
                             onSaveCard = { newCard ->
-                                // Save the card to the database
                                 viewModel.addCard(newCard) { newCardId ->
-                                    
-                                    // Set up the exact offline alarm for the due date
                                     ReminderScheduler.scheduleReminder(
                                         context = this@MainActivity,
                                         cardId = newCardId,
                                         bankName = newCard.bankName,
                                         dayOfMonth = newCard.paymentDueDay,
-                                        hour = 9, // Remind at 9:00 AM
+                                        hour = 9,
                                         minute = 0
                                     )
-                                    
-                                    // Go back to the dashboard
                                     navController.popBackStack()
                                 }
                             }
                         )
                     }
                     
-                    // SCREEN C: View Card Details & Add Spends
                     composable("card_detail/{cardId}") { backStackEntry ->
-                        // Extract the card ID from the navigation route
                         val cardIdString = backStackEntry.arguments?.getString("cardId")
                         val cardId = cardIdString?.toLongOrNull()
                         
-                        // Find the matching card
                         val card = cards.find { it.id == cardId }
                         
-                        // Get all transactions (spends/payments) for this specific card
-                        val transactions flow = if (cardId != null) {
+                        val transactionsFlow = if (cardId != null) {
                             viewModel.getTransactions(cardId)
                         } else {
                             MutableStateFlow(emptyList())
                         }
-                        val transactionsList by flow.collectAsState()
+                        val transactionsList by transactionsFlow.collectAsState()
 
-                        // Show the detail screen
                         CardDetailScreen(
                             card = card,
                             transactions = transactionsList,
@@ -109,4 +105,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
