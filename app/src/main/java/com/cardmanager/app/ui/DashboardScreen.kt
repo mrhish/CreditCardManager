@@ -1,12 +1,15 @@
 package com.cardmanager.app.ui
 
-import androidx.compose.foundation.background
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,13 +26,50 @@ import com.cardmanager.app.ui.theme.*
 fun DashboardScreen(
     cards: List<Card>,
     onAddCardClick: () -> Unit,
-    onCardClick: (Long) -> Unit
+    onCardClick: (Long) -> Unit,
+    onExportDatabase: (Uri) -> Unit,
+    onImportDatabase: (Uri) -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { onExportDatabase(it) }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { onImportDatabase(it) }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("My Wallet", fontWeight = FontWeight.Bold, color = PayPalNavy) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight),
+                actions = {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Settings")
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Backup Data") },
+                            onClick = {
+                                showMenu = false
+                                exportLauncher.launch("CardManager_Backup.json")
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Restore Data") },
+                            onClick = {
+                                showMenu = false
+                                importLauncher.launch(arrayOf("application/json"))
+                            }
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
